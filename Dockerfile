@@ -1,8 +1,15 @@
+# Stage 1: Build JS/CSS assets with Node 20
+FROM node:20-alpine AS node-builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: PHP runtime (no Node needed)
 FROM php:8.4-cli
 
-ARG CACHEBUST=1
-
-# System dependencies + PHP extensions MySQL
+# System dependencies + PHP extensions
 RUN apt-get update && apt-get install -y \
     git curl unzip zip libzip-dev libpng-dev libonig-dev libxml2-dev \
     libjpeg-dev libfreetype6-dev libicu-dev \
@@ -10,31 +17,22 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_mysql mbstring xml zip opcache gd bcmath intl \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Node.js 20 (obligatoire pour Vite 8 / Tailwind 4)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && node --version && npm --version
-
 # Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-# Installer les dépendances PHP (cache layer)
+# PHP dependencies (cache layer)
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
-# Installer les dépendances Node (cache layer)
-COPY package.json package-lock.json ./
-RUN npm ci
-
-# Copier le reste du projet
+# Copy application source
 COPY . .
 
-# Build des assets Vite
-RUN npm run build
+# Overwrite with built assets from node-builder stage
+COPY --from=node-builder /app/public/build /app/public/build
 
-# Répertoires Laravel
+# Laravel storage directories
 RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
