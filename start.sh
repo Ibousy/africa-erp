@@ -19,6 +19,9 @@ php artisan route:cache
 echo "Running migrations..."
 php artisan migrate --force
 
+# Ensure super admin account exists
+php artisan erp:ensure-super-admin
+
 # Create storage symlink
 php artisan storage:link --force 2>/dev/null || true
 
