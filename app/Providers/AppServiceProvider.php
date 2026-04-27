@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,6 +15,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Force HTTPS when behind Railway's SSL-terminating proxy
+        if (str_starts_with(config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
         Builder::defaultStringLength(191);
 
         Blade::directive('label', function ($expression) {
